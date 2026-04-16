@@ -35,7 +35,7 @@ python3 analyze_inbox.py [--report REPORT] [--top N] [--year YEAR] [--mbox PATH]
 
 ### First run
 
-The first run will parse the raw mbox file and build a small cache under `~/.analyze_inbox/`. This is the slow step — expect **5–10 minutes** for a large Gmail account. Every subsequent run reads from the cache and completes in under a second.
+The first run will parse the raw mbox file and build a small cache under `~/.analyze_inbox/`. This is the slow step — with an inbox of around 17,000 messages it takes close to 7 minutes. Every subsequent run reads from the cache and completes in a few seconds.
 
 ```bash
 python3 analyze_inbox.py --report senders
