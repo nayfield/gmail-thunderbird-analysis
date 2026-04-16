@@ -247,10 +247,7 @@ def read_cache(mbox_path):
     with open(cache, "r", encoding="utf-8") as f:
         header = json.loads(f.readline())
         if header.get("version", 1) < CACHE_VERSION:
-            print(
-                f"  Cache is outdated (v{header.get('version',1)} < v{CACHE_VERSION}) — regenerating ...",
-                file=sys.stderr,
-            )
+            print(f"  Cache format needs refreshing — regenerating ...", file=sys.stderr)
             return None
         if abs(header.get("mbox_mtime", 0) - mtime) > 1:
             print(
@@ -278,15 +275,17 @@ def read_cache(mbox_path):
 def parse_mbox(mbox_path, year=None):
     print(f"Parsing {mbox_path} ...", file=sys.stderr)
     mbox = mailbox.mbox(str(mbox_path), factory=None, create=False)
+    mbox._generate_toc()
     messages = []
     skipped = 0
-    for i, msg in enumerate(mbox):
+    for i, (key, msg) in enumerate(mbox.items()):
         if i % 10000 == 0 and i > 0:
             print(f"  {i} messages read...", file=sys.stderr)
         dt = parse_date(msg)
         if year and (dt is None or dt.year != year):
             skipped += 1
             continue
+        start, stop = mbox._toc[key]
         has_att, att_bytes = get_attachment_info(msg)
         messages.append({
             "date": dt,
@@ -294,7 +293,7 @@ def parse_mbox(mbox_path, year=None):
             "from_display": sender_display(msg),
             "to_addr": primary_to_addr(msg),
             "subject": decode_header(msg.get("Subject", "(no subject)")),
-            "size": len(bytes(msg)),
+            "size": stop - start,
             "has_attachment": has_att,
             "attachment_size": att_bytes,
             "list_unsubscribe": bool(msg.get("List-Unsubscribe")),
