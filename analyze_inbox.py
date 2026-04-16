@@ -46,7 +46,7 @@ def _i(s):
     """Intern a string to deduplicate repeated values (e.g. sender addresses)."""
     return sys.intern(s) if s else s
 
-CACHE_VERSION = 3
+CACHE_VERSION = 4
 
 
 # ---------------------------------------------------------------------------
@@ -140,6 +140,16 @@ def get_thread_id(msg):
     return mid
 
 
+def get_list_id(msg):
+    """Return the clean List-ID value, e.g. 'list-name.example.com', or ''."""
+    raw = decode_header(msg.get("List-ID") or "")
+    if not raw:
+        return ""
+    # Header is often: "Human Name <list-id.domain.com>" — extract the bracketed part
+    m = re.search(r"<([^>]+)>", raw)
+    return _i(m.group(1).strip()) if m else _i(raw.strip())
+
+
 def get_attachment_info(msg):
     """Return (has_attachment: bool, attachment_bytes: int)."""
     has_att = False
@@ -221,6 +231,7 @@ def write_cache(mbox_path, messages):
                 "has_attachment": m["has_attachment"],
                 "attachment_size": m["attachment_size"],
                 "list_unsubscribe": m["list_unsubscribe"],
+                "list_id": m["list_id"],
                 "thread_id": m["thread_id"],
             }
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
@@ -253,6 +264,7 @@ def read_cache(mbox_path):
             row["from_addr"]    = _i(row["from_addr"])
             row["from_display"] = _i(row["from_display"])
             row["to_addr"]      = _i(row["to_addr"])
+            row["list_id"]      = _i(row.get("list_id", ""))
             row["thread_id"]    = _i(row["thread_id"])
             messages.append(row)
     print(f"  Loaded {len(messages):,} messages from cache.", file=sys.stderr)
@@ -286,6 +298,7 @@ def parse_mbox(mbox_path, year=None):
             "has_attachment": has_att,
             "attachment_size": att_bytes,
             "list_unsubscribe": bool(msg.get("List-Unsubscribe")),
+            "list_id": get_list_id(msg),
             "thread_id": get_thread_id(msg),
         })
     print(
@@ -423,11 +436,14 @@ def report_unsubscribe(messages, top_n):
     count_by_addr = collections.Counter(m["from_addr"] for m in unsub)
     size_by_addr = collections.defaultdict(int)
     display_map = {}
+    list_id_map = {}
     for m in unsub:
         addr = m["from_addr"]
         size_by_addr[addr] += m["size"]
         if addr not in display_map:
             display_map[addr] = m["from_display"]
+        if addr not in list_id_map and m["list_id"]:
+            list_id_map[addr] = m["list_id"]
 
     total_unsub = len(unsub)
     total_size = sum(size_by_addr.values())
@@ -437,21 +453,23 @@ def report_unsubscribe(messages, top_n):
     print(f"  or marketing mail. Safe to bulk-delete and unsubscribe from.")
     print(f"  In Gmail: search  from:SENDER  → Select All → Delete.")
     print(f"  ({total_unsub:,} messages have List-Unsubscribe  /  {total_size/1_048_576:.0f} MB total)")
-    print(f"  {'COUNT':>6}  {'PCT':>5}  {'MB':>8}  {'SENDER'}")
-    print(f"  {'-'*6}  {'-'*5}  {'-'*8}  {'-'*50}")
+    print(f"  {'COUNT':>6}  {'PCT':>5}  {'MB':>8}  {'SENDER / LIST-ID'}")
+    print(f"  {'-'*6}  {'-'*5}  {'-'*8}  {'-'*60}")
     for addr, count in count_by_addr.most_common(top_n):
         pct = 100 * count / total_unsub if total_unsub else 0
         mb = size_by_addr[addr] / 1_048_576
-        print(f"  {count:6,}  {pct:4.1f}%  {mb:8.1f}  {display_map[addr]}")
+        lid = f"  [{list_id_map[addr]}]" if addr in list_id_map else ""
+        print(f"  {count:6,}  {pct:4.1f}%  {mb:8.1f}  {display_map[addr]}{lid}")
 
     print(f"\n=== UNSUBSCRIBE CANDIDATES — TOP {top_n} BY STORAGE ===")
-    print(f"  {'MB':>8}  {'PCT':>5}  {'COUNT':>6}  {'SENDER'}")
-    print(f"  {'-'*8}  {'-'*5}  {'-'*6}  {'-'*50}")
+    print(f"  {'MB':>8}  {'PCT':>5}  {'COUNT':>6}  {'SENDER / LIST-ID'}")
+    print(f"  {'-'*8}  {'-'*5}  {'-'*6}  {'-'*60}")
     for addr, total_bytes in sorted(size_by_addr.items(), key=lambda x: x[1], reverse=True)[:top_n]:
         mb = total_bytes / 1_048_576
         pct = 100 * total_bytes / total_size if total_size else 0
         count = count_by_addr[addr]
-        print(f"  {mb:8.1f}  {pct:4.1f}%  {count:6,}  {display_map[addr]}")
+        lid = f"  [{list_id_map[addr]}]" if addr in list_id_map else ""
+        print(f"  {mb:8.1f}  {pct:4.1f}%  {count:6,}  {display_map[addr]}{lid}")
 
 
 def report_attachments(messages, top_n):
