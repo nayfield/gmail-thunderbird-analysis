@@ -6,7 +6,7 @@ Analyze your Gmail account from the command line — sender frequency, storage u
 
 Gmail's web interface and API don't give you easy access to bulk analytics. This tool takes a different approach: it reads the local mail cache that Thunderbird maintains on your machine, which is stored in standard [mbox format](https://en.wikipedia.org/wiki/Mbox) and contains your full account history.
 
-**You need to sync your Gmail to Thunderbird first.** Once Thunderbird has downloaded your mail, this script runs entirely offline against the local cache — no API keys, no OAuth, no rate limits.
+**You need to sync your Gmail to Thunderbird first.** Once Thunderbird has downloaded your mail, this script runs entirely offline against the local cache — no API keys, no OAuth, no rate limits.  Your email data stays on your computer.  If you want to take action (delete all mail from a sender), that's up to you.
 
 ## Setup
 
