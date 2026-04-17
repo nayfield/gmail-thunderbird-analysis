@@ -101,3 +101,4 @@ The cache file is tied to the specific mbox it was built from, so analyzing mult
 - **All Mail vs. other folders**: Gmail's `[Gmail]/All Mail` folder contains every message exactly once. Other folders like `Important` and `Starred` are label views that duplicate messages from All Mail. For account-wide analysis, stick with All Mail.
 - **Sent mail**: All Mail includes your sent messages. The sender on those will be your own address.
 - **Message sizes**: Sizes reflect the on-disk mbox representation, which includes full headers and Base64-encoded attachments (~33% larger than the original binary).
+- this was written against a MacOS Thunderbird data store, but I'd gladly take pull requests to fix up the paths for linux, or even Copilot365 Windows OS.
